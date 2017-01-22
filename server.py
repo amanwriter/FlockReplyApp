@@ -6,7 +6,7 @@ import pickle
 
 class FlockService(HTTPService):
     def __init__(self, ip, port):
-        super(TestService, self).__init__("Flock_App", "1", ip, port)
+        super(FlockService, self).__init__("Flock_App", "1", ip, port)
         self.user_id2token = {}
         try:
             # Reading user_id to token mapping from local file
