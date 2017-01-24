@@ -43,7 +43,7 @@ class FlockService(HTTPService):
             params={"token": self.user_id2token[msg_from], "chat": msg_to, "uids": [msg_to_fetch]})
         msg_details = yield from msg_details.json()
         target_user_id = msg_details[0]["from"]
-        msg_text = msg_details[0]["text"][:100]
+        msg_text = msg_details[0]["text"][:100].replace('\n', '. ')
         if len(msg_text) > 90:
             msg_text += "..."
         # Handling image attachments
@@ -111,7 +111,8 @@ class FlockService(HTTPService):
     @post(path='/post_to_group')
     def post_to_group(self, request):
         r = yield from request.post()
-        resp = yield from aiohttp.request('post', url='https://api.flock.co/v1/chat.sendMessage', data=json.dumps(r))
+        resp = yield from aiohttp.request('post', url='https://api.flock.co/v1/chat.sendMessage',
+            data=json.dumps(r))
         resp = yield from resp.json()
         return Response(status=200)
 
