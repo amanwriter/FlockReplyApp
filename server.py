@@ -16,7 +16,7 @@ class FlockService(HTTPService):
 
     @post(path='/install')
     def install_api(self, request):
-        r = yield from request.post()
+        r = yield from request.json()
         if r['name'] == 'app.install':
             self.user_id2token[r['userId']] = r['token']
         #Saving user_id to token mapping to local file
