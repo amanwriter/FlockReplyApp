@@ -46,17 +46,6 @@ class FlockService(HTTPService):
         msg_text = msg_details[0]["text"][:100].replace('\n', '. ')
         if len(msg_text) > 90:
             msg_text += "..."
-        # Handling image attachments
-        try:
-            image_url = msg_details[0]["attachments"][0]["views"]["image"]["original"]["src"]
-            msg_attachment = '<image id="att_img" src="{image_url}" style="max-width:200px;max-height:100px;"/>'.format(image_url=image_url)
-            attachment = """ "views": {{"image": {{"original": {{
-                    "width": document.getElementById('att_img').width, "src": "{image_url}",
-                    "height": document.getElementById('att_img').height
-                }}  }} }} """.format(image_url=image_url)
-        except:
-            msg_attachment = ""
-            attachment = ""
 
         profile_details = yield from aiohttp.request("get", url="https://api.flock.co/v1/users.getPublicProfile",
             params={"token": self.user_id2token[msg_from], "userId":target_user_id})
@@ -66,6 +55,27 @@ class FlockService(HTTPService):
         random_color = hashlib.md5((first_name+last_name).encode()).hexdigest()[-3:]
         if int(random_color, 16) < 2048:
             random_color = hex(int(random_color, 16) + 2048)[-3:]
+
+        # Handling image attachments
+        try:
+            image_url = msg_details[0]["attachments"][0]["views"]["image"]["original"]["src"]
+            msg_attachment = '<image id="att_img" src="{image_url}" style="max-width:200px;max-height:100px;"/>'.format(image_url=image_url)
+            attachment = """ "views": {{
+            "flockml": "<flockml><user userId='{target_user_id}'><b>{first_name} {last_name}</b></user></flockml>",
+            "image": {{"original": {{
+                    "width": document.getElementById('att_img').width, "src": "{image_url}",
+                    "height": document.getElementById('att_img').height
+                }}  }} }} """.format(image_url=image_url, target_user_id=target_user_id,
+                    first_name=first_name, last_name=last_name)
+        except:
+            msg_attachment = ""
+            attachment = """
+            "views": {{
+            "flockml": "<flockml><user userId='{target_user_id}'><b>{first_name} {last_name}</b></user></flockml>"
+            }}
+            """.format(target_user_id=target_user_id, first_name=first_name, last_name=last_name)
+
+
 
         ret = """
         <html>
