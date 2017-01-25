@@ -110,7 +110,7 @@ class FlockService(HTTPService):
 
     @post(path='/post_to_group')
     def post_to_group(self, request):
-        r = yield from request.post()
+        r = yield from request.json()
         resp = yield from aiohttp.request('post', url='https://api.flock.co/v1/chat.sendMessage',
             data=json.dumps(r))
         resp = yield from resp.json()
