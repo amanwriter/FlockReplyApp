@@ -1,12 +1,13 @@
-from vyked import Host, HTTPService, get, Request, Response, post
 import json
 import aiohttp
 import hashlib
 import pickle
+import asyncio
+from aiohttp import web
+from aiohttp.web import Response
 
-class FlockService(HTTPService):
-    def __init__(self, ip, port):
-        super(FlockService, self).__init__("Flock_App", "1", ip, port)
+class FlockService:
+    def __init__(self):
         self.user_id2token = {}
         try:
             # Reading user_id to token mapping from local file
@@ -14,7 +15,7 @@ class FlockService(HTTPService):
         except:
             pass
 
-    @post(path='/install')
+    @asyncio.coroutine
     def install_api(self, request):
         r = yield from request.json()
         if r['name'] == 'app.install':
@@ -23,9 +24,8 @@ class FlockService(HTTPService):
         pickle.dump(self.user_id2token, open('user_id2token.p', 'wb'))
         return Response(status=200)
 
-    @get(path='/reply')
+    @asyncio.coroutine
     def render_reply_box(self, request):
-        print(dict(request.GET))
         event_details = json.loads(request.GET['flockEvent'])
         msg_from = event_details['userId']
         msg_to = event_details.get('chat', event_details.get('_peerId', ''))
@@ -61,7 +61,6 @@ class FlockService(HTTPService):
             image_url = msg_details[0]["attachments"][0]["views"]["image"]["original"]["src"]
             msg_attachment = '<image id="att_img" src="{image_url}" style="max-width:200px;max-height:100px;"/>'.format(image_url=image_url)
             attachment = """ "views": {{
-            "flockml": "<flockml><user userId='{target_user_id}'><b>{first_name} {last_name}</b></user></flockml>",
             "image": {{"original": {{
                     "width": document.getElementById('att_img').width, "src": "{image_url}",
                     "height": document.getElementById('att_img').height
@@ -89,7 +88,7 @@ class FlockService(HTTPService):
         </div><br></div>
         <textarea id="reply" style="width:100%;margin:10px 0px;height:100px;border:none;font-size:15px;border-top:1px solid #aaa;padding:14px 40px 0 8px;"></textarea><br>
         <div style="float:right">
-        <button style="background: #696969;padding: 10px 25px;border: 1px solid #0abe51;color: #fff;cursor: pointer;border-radius: 4px;outline: none;" onclick="flock.close()">Close</button>
+        <button style="background: #696969;padding: 10px 25px;border: 1px solid #d1d1d1;color: #fff;cursor: pointer;border-radius: 4px;outline: none;" onclick="flock.close()">Cancel</button>
         <button style="background: #0abe51;padding: 10px 25px;border: 1px solid #0abe51;color: #fff;cursor: pointer;border-radius: 4px;outline: none;" onclick="send_reply()">Reply</button>
         </div></body><script>
             function send_reply(){{
@@ -118,7 +117,7 @@ class FlockService(HTTPService):
 
         return Response(status=200, body=ret.encode())
 
-    @post(path='/post_to_group')
+    @asyncio.coroutine
     def post_to_group(self, request):
         r = yield from request.json()
         resp = yield from aiohttp.request('post', url='https://api.flock.co/v1/chat.sendMessage',
@@ -126,7 +125,7 @@ class FlockService(HTTPService):
         resp = yield from resp.json()
         return Response(status=200)
 
-    @get(path='/{req}')
+    @asyncio.coroutine
     def get_file(self, request):
         req = request.match_info.get('req')
         try:
@@ -138,12 +137,18 @@ class FlockService(HTTPService):
         return Response(status=200, body=resp.encode())
 
 
-def runhost():
-    http = FlockService('127.0.0.1', 8000)
-    Host.name = 'Flock_App'
-    Host.ronin = True
-    Host.attach_service(http)
-    Host.run()
+app = web.Application()
+loop = asyncio.get_event_loop()
+http_service = FlockService()
+app.router.add_route('POST', '/install', http_service.install_api)
+app.router.add_route('GET', '/reply', http_service.render_reply_box)
+app.router.add_route('POST', '/post_to_group', http_service.post_to_group)
+app.router.add_route('POST', '/{req}', http_service.get_file)
 
-if __name__ == '__main__':
-    runhost()
+serve = loop.create_server(app.make_handler(), '0.0.0.0', 8000)
+loop.run_until_complete(serve)
+
+try:
+    loop.run_forever()
+except KeyboardInterrupt:
+    pass
